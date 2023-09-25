@@ -27,9 +27,6 @@ void setup()
   digitalWrite(pin_CS_ADC1,HIGH);
   pinMode(pin_CS_SDcard,OUTPUT);
   digitalWrite(pin_CS_SDcard,HIGH);
-  
-  pinMode(redLed,OUTPUT);
-  digitalWrite(redLed,LOW);
 
   //*************************************** Initialize SPI *******************************************
   
@@ -102,7 +99,7 @@ size_t EEsize = sizeof(EEprom);
 // EEPROM.begin(EEsize);
 // memcpy(EE->id, "IoTaWatt", 8);
 // EE->EEversion = 0;
-// EE->deviceMajorVersion = 5;
+// EE->deviceMajorVersion = 6;
 // EE->deviceMinorVersion = 0;
 // EE->mfgDate = 0;
 // EE->mfgLot = 0;
@@ -265,19 +262,13 @@ void endLedCycle(){
 
 void ledBlink(){
   digitalWrite(greenLed, LOW);
-  digitalWrite(redLed, LOW);
   if(ledColor[ledCount] == 0) ledCount = 0;
-  if(ledColor[ledCount] == 'R')digitalWrite(redLed, HIGH);
-  else if(ledColor[ledCount] == 'G')digitalWrite(greenLed, HIGH);
+  if(ledColor[ledCount] == 'G') digitalWrite(greenLed, HIGH);
   ledCount++;
 }
 
 void setLedState(){
   if(validConfig){
     digitalWrite(greenLed, HIGH);
-    digitalWrite(redLed, LOW);
-    if( !RTCrunning || WiFi.status() != WL_CONNECTED){
-      digitalWrite(redLed, HIGH);
-    }
   }
 } 

@@ -19,7 +19,7 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.   
 ***********************************************************************************/
 #define IOTAWATT_VERSION "02_08_02"
-#define DEVICE_NAME "IotaWatt"
+#define DEVICE_NAME "IotaWatt-Mega"
 
 #define PRINT(txt,val) Serial.print(txt); Serial.print(val);      // Quick debug aids
 #define PRINTL(txt,val) Serial.print(txt); Serial.println(val);
@@ -104,7 +104,7 @@ extern simSolar *simsolar;
 #define IOTA_TABLE_PATH       "/tables.txt"
 #define IOTA_NEW_TABLE_PATH   "/table+1.txt"
 #define IOTA_INTEGRATIONS_DIR "/iotawatt/integrations/"
-#define IOTA_UPDATE_HOST      "iotawatt.com"
+#define IOTA_UPDATE_HOST      "iotawatt.home"
 #define IOTA_VERSIONS_PATH    "/firmware/versions.json"
 #define IOTA_VERSIONS_DIR     "/firmware/bin/"     
 #define IOTA_TABLE_DIR        "/download/tables/"
@@ -115,14 +115,13 @@ extern char* deviceName;
 
 
 #define pin_CS_ADC0 0                       // Define the hardware SPI chip select pins
-#define pin_CS_ADC1 2
+#define pin_CS_ADC1 16
 #define pin_CS_SDcard 15
 
 #define pin_I2C_SDA 4                       // I2C for rtc.  Wish it were SPI.
 #define pin_I2C_SCL 5
 
-#define redLed 16                           // IoTaWatt overusage of pins
-#define greenLed 0
+#define greenLed 2
 
 extern uint8_t ADC_selectPin[2];            // indexable reference for ADC select pins
 
@@ -172,7 +171,7 @@ struct EEprom {
 #define T_influx 7         // influxDB
 #define T_SAMP 8           // sampleCycle
 #define T_POWER 9          // Sample Power
-#define T_WEB 10           // (30)Web server handlers
+#define T_WEB 10           // (30)Web server handlersmax_inputs
 #define T_CONFIG 11        //  Get Config
 #define T_encryptEncode 12 //  base64encode and encryptData in EmonService
 #define T_uploadGraph 13 
@@ -199,14 +198,14 @@ struct EEprom {
 
       // LED codes
 
-#define LED_CONNECT_WIFI            "R.G.G..."              // Connecting to WiFi, AP active
-#define LED_CONNECT_WIFI_NO_RTC     "R.R.G..."              // Connecting to WiFi, AP active, nofail
-#define LED_SD_INIT_FAILURE         "G.R.R..."              // SD initialization failed
-#define LED_DUMPING_LOG             "R.G.R..."              // Dtatlog damage, creating diagnostic file
-#define LED_HALT                    "R.R.R..."              // Fatal error, IoTaWatt halted
-#define LED_NO_CONFIG               "G.R.R.R..."            // No configuration file found
-#define LED_BAD_CONFIG              "G.R.R.G..."            // Could not parse config file
-#define LED_UPDATING                "R.G."                  // Downloading new release
+#define LED_CONNECT_WIFI            "G..."              // Connecting to WiFi, AP active
+#define LED_CONNECT_WIFI_NO_RTC     "G.G..."              // Connecting to WiFi, AP active, nofail
+#define LED_SD_INIT_FAILURE         "G.G.G..."              // SD initialization failed
+#define LED_DUMPING_LOG             "G.G.G.G..."              // Dtatlog damage, creating diagnostic file
+#define LED_HALT                    "G.G.G.G.G..."              // Fatal error, IoTaWatt halted
+#define LED_NO_CONFIG               "G.G.G.G.G.G..."            // No configuration file found
+#define LED_BAD_CONFIG              "G.G.G.G.G.G.G..."            // Could not parse config file
+#define LED_UPDATING                "G.G."                  // Downloading new release
 
       // ADC descriptors
 
@@ -245,7 +244,7 @@ extern serviceBlock* serviceQueue;     // Head of ordered list of services
       // Can be specified in config.device.aref
       // Voltage adjustments are the values for AC reference attenuation in IotaWatt 2.1.
 
-#define MAXINPUTS 15                          // Compile time input channels, can't be changed easily 
+#define MAXINPUTS 31                          // Compile time input channels, can't be changed easily 
 extern IotaInputChannel* *inputChannel;       // -->s to incidences of input channels (maxInputs entries)
 extern uint8_t  maxInputs;                    // channel limit based on configured hardware (set in Config)
 extern uint8_t  deviceMajorVersion;           // Major version of hardware 
@@ -253,7 +252,7 @@ extern uint8_t  deviceMinorVersion;           // Minor version of hardware
 extern float    VrefVolts;                    // Voltage reference shunt value used to calibrate
                                               // the ADCs. (can be specified in config.device.refvolts)
 extern int16_t* masterPhaseArray;             // Single array containing all individual phase shift arrays    
-#define Vadj_3 13                             // Voltage channel attenuation ratio
+#define Vadj_3 1                             // Voltage channel attenuation ratio
 
       // ****************************************************************************
       // statService maintains current averages of the channel values
@@ -347,7 +346,7 @@ extern long           tableVersion;
 
 // ************************ ADC sample pairs ************************************
 
-#define MAX_SAMPLES 1000
+#define MAX_SAMPLES 2000
 
 extern uint32_t sumVsq;                           // sampleCycle will compute these while collecting samples    
 extern uint32_t sumIsq;

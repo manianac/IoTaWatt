@@ -50,12 +50,16 @@ int sampleCycle(IotaInputChannel *Vchannel, IotaInputChannel *Ichannel, int cycl
   int Vchan = Vchannel->_channel;
   int Ichan = Ichannel->_channel;
 
-  uint32_t dataMask = ((ADC_BITS + 6) << SPILMOSI) | ((ADC_BITS + 6) << SPILMISO);
-  const uint32_t mask = ~((SPIMMOSI << SPILMOSI) | (SPIMMISO << SPILMISO));
+  uint32_t dataMask = ((ADC_BITS + 3) << SPILMOSI) | ((ADC_BITS + 3) << SPILMISO);
+  constexpr uint32_t mask = ~((SPIMMOSI << SPILMOSI) | (SPIMMISO << SPILMISO));
   volatile uint8_t * fifoPtr8 = (volatile uint8_t *) &SPI1W0;
+
+  constexpr uint16_t adc_config = ( 0b0001 << 12 ) |         // Manual read of configured channel
+                                  ( 1 << 11 ) |              // Enable setting of configuration functions
+                                  ( 1 << 6 );                // 2xVref input range
   
-  uint8_t  Iport = inputChannel[Ichan]->_addr % 8;       // Port on ADC
-  uint8_t  Vport = inputChannel[Vchan]->_addr % 8;
+  uint8_t  Iport = inputChannel[Ichan]->_addr % 16;       // Port on ADC
+  uint8_t  Vport = inputChannel[Vchan]->_addr % 16;
     
   int16_t offsetV = Vchannel->_offset;        // Bias offset
   int16_t offsetI = Ichannel->_offset;
@@ -78,16 +82,18 @@ int sampleCycle(IotaInputChannel *Vchannel, IotaInputChannel *Ichannel, int cycl
   int16_t midCrossSamples;                    // Sample count at mid cycle and end of cycle
   int16_t lastCrossSamples;                   // Used to determine if sampling was interrupted
 
-  byte ADC_IselectPin = ADC_selectPin[inputChannel[Ichan]->_addr >> 3];  // Chip select pin
-  byte ADC_VselectPin = ADC_selectPin[inputChannel[Vchan]->_addr >> 3];
+  byte ADC_IselectPin = ADC_selectPin[inputChannel[Ichan]->_addr >> 4];  // Chip select pin
+  byte ADC_VselectPin = ADC_selectPin[inputChannel[Vchan]->_addr >> 4];
   uint32_t ADC_IselectMask = 1 << ADC_IselectPin;             // Mask for hardware chip select (pins 0-15)
   uint32_t ADC_VselectMask = 1 << ADC_VselectPin;
 
   bool Vsensed = false;                       // Voltage greater than 5 counts sensed.
   bool Vreverse = inputChannel[Vchan]->_reverse;
   bool Ireverse = inputChannel[Ichan]->_reverse;
+
+  uint8_t adc_channelRead = 0xFF;
   
-  SPI.beginTransaction(SPISettings(2000000,MSBFIRST,SPI_MODE0));
+  SPI.beginTransaction(SPISettings(10000000, MSBFIRST, SPI_MODE0));
  
   rawV = readADC(Vchan) - offsetV;                    // Prime the pump
   samples = 0;                                        // Start with nothing
@@ -97,16 +103,18 @@ int sampleCycle(IotaInputChannel *Vchannel, IotaInputChannel *Ichannel, int cycl
   ESP.wdtFeed();                                     // Red meat for the silicon dog
   WDT_FEED();
   do{  
+        uint16_t payload = (adc_config | ( Iport << 7));
                       /************************************
                        * Sample the Current (I) channel   *
                        ************************************/
-                                               
-        GPOC = ADC_IselectMask;                            // digitalWrite(ADC_IselectPin, LOW); Select the ADC
+
+        if (ADC_IselectPin == 16)   GP16O &= ~1;
+        else                        GPOC = ADC_IselectMask;                            // digitalWrite(ADC_IselectPin, LOW); Select the ADC
 
               // hardware send 5 bit start + sgl/diff + port_addr
                                             
         SPI1U1 = (SPI1U1 & mask) | dataMask;               // Set number of bits 
-        SPI1W0 = (0x18 | Iport) << 3;                      // Data left aligned in low byte 
+        SPI1W0 = ((payload >> 8) & 0xFF) | ((payload & 0xFF) << 8);               // Manual request to ADC
         SPI1CMD |= SPIBUSY;                                // Start the SPI clock  
 
               // Do some loop housekeeping asynchronously while SPI runs.
@@ -139,22 +147,29 @@ int sampleCycle(IotaInputChannel *Vchannel, IotaInputChannel *Ichannel, int cycl
               // Now wait for SPI to complete
         
         while(SPI1CMD & SPIBUSY) {}                                         // Loop till SPI completes
-        GPOS = ADC_IselectMask;                                             // digitalWrite(ADC_IselectPin, HIGH); Deselect the ADC 
+        if (ADC_IselectPin == 16) GP16O |= 1;
+        else                      GPOS = ADC_IselectMask;                                             // digitalWrite(ADC_IselectPin, HIGH); Deselect the ADC 
 
-              // extract the rawV from the SPI hardware buffer and adjust with offset. 
-                                                                    
-        rawI = (word(*fifoPtr8 & 0x01, *(fifoPtr8+1)) << 3) + (*(fifoPtr8+2) >> 5) - offsetI;
+        adc_channelRead = (word(*fifoPtr8, *(fifoPtr8+1)) >> 12);
+
+        if (adc_channelRead != Iport)
+          rawI = readADC(Ichan) - offsetI;
+        else
+          // extract the rawI from the SPI hardware buffer and adjust with offset. 
+          rawI = (word(*fifoPtr8, *(fifoPtr8+1)) & 0xFFF) - offsetI;
 
                       /************************************
                        *  Sample the Voltage (V) channel  *
                        ************************************/
-         
-        GPOC = ADC_VselectMask;                             // digitalWrite(ADC_VselectPin, LOW); Select the ADC
+        payload = (adc_config | ( Vport << 7));
+
+        if (ADC_VselectPin == 16)   GP16O &= ~1;
+        else                        GPOC = ADC_VselectMask;                             // digitalWrite(ADC_VselectPin, LOW); Select the ADC
   
               // hardware send 5 bit start + sgl/diff + port_addr0
         
         SPI1U1 = (SPI1U1 & mask) | dataMask;
-        SPI1W0 = (0x18 | Vport) << 3;
+        SPI1W0 = ((payload >> 8) & 0xFF) | ((payload & 0xFF) << 8);               // Manual request to ADC
         SPI1CMD |= SPIBUSY;
         
               // Do some housekeeping asynchronously while SPI runs.
@@ -184,12 +199,17 @@ int sampleCycle(IotaInputChannel *Vchannel, IotaInputChannel *Ichannel, int cycl
                               
               // Now wait for SPI to complete
         
-        while(SPI1CMD & SPIBUSY) {}                                 
-        GPOS = ADC_VselectMask;                           // digitalWrite(ADC_VselectPin, HIGH);  Deselect the ADC                       
+        while(SPI1CMD & SPIBUSY) {}
+        if (ADC_VselectPin == 16)   GP16O |= 1;
+        else                        GPOS = ADC_VselectMask;                           // digitalWrite(ADC_VselectPin, HIGH);  Deselect the ADC                       
 
-              // extract the rawI from the SPI hardware buffer and adjust with offset.
- 
-        rawV = (word(*fifoPtr8 & 0x01, *(fifoPtr8+1)) << 3) + (*(fifoPtr8+2) >> 5) - offsetV;
+        adc_channelRead = (word(*fifoPtr8, *(fifoPtr8+1)) >> 12);
+        
+        if (adc_channelRead != Vport)
+          // Retry until correct channel is returned
+          rawV = readADC(Vchan) - offsetV;
+        else // extract the rawI from the SPI hardware buffer and adjust with offset.
+          rawV = (word(*fifoPtr8, *(fifoPtr8+1)) & 0xFFF) - offsetV;
                
         // Finish up loop cycle by checking for zero crossing.
         // Crossing is defined by voltage changing signs  (Xor) and crossGuard negative.
@@ -248,12 +268,12 @@ int sampleCycle(IotaInputChannel *Vchannel, IotaInputChannel *Ichannel, int cycl
     // A sample (V & I pair) should take 26.04us.
     // If we get 10 or more less than that, or less than 320,
     // reject the cycle.
-  
+  /*
   if(samples < MAX(320, (lastCrossUs - firstCrossUs) * 100 / 2604 - 10)){
     Serial.printf_P(PSTR("Low sample count %d\r\n"), samples);
     return 1;
   }
-
+*/
     // The sample count for each half of the cycle should be equal.
     // The zero crossings can be a sample or two off. 
     // Reject the cycle if the difference is more than 8.

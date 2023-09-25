@@ -216,19 +216,61 @@ enum RTCmodel   // Value is the I2C address
 {
     unknown,
     PCF8523,
-    M41T81
+    M41T81,
+    MCP7940
 };
 
 #define PCF8523_ADDR 0x68
 #define M41T81_ADDR 0xd0
+#define MCP7940_ADDR 0x6f
 
 class RTC {
 
     protected:
         TwoWire *RTCWireBus;
         RTCmodel _model = unknown;
-        uint8_t _RTCaddr = PCF8523_ADDR;
+        uint8_t _RTCaddr = MCP7940_ADDR;
         void readBytes(uint8_t memoryAddress, uint8_t len = 1);
+
+    union MCP7940Reg {
+      struct {
+        // 0x00 RTCSEC
+        uint8_t second : 7;
+        bool start_osc : 1;
+        // 0x01 RTCMIN
+        uint8_t minute : 7;
+        uint8_t unused_1 : 1;
+        // 0x02 RTCHOUR
+        uint8_t hour : 6;
+        uint8_t hour_12_24 : 1;
+        uint8_t unused_2 : 1;
+        // 0x03 RTCWKDAY
+        uint8_t weekday : 3;
+        uint8_t unused_3 : 2;
+        uint8_t osc_run : 1;
+        uint8_t unused_3_1 : 2;
+        // 0x04 RTCDATE
+        uint8_t day : 6;
+        uint8_t unused_4 : 2;
+        // 0x05 RTCMTH
+        uint8_t month : 5;
+        uint8_t leap_year : 1;
+        uint8_t unused_5 : 2;
+        // 0x06 RTCYEAR
+        uint8_t year;
+        // 0x07 CONTROL
+        uint8_t square_wave_freq : 2;
+        bool course_trim_enable : 1;
+        bool ext_osc_en : 1;
+        bool alarm_0_en : 1;
+        bool alarm_1_en : 1;
+        bool squarewave_output_en : 1;
+        bool out : 1;
+        // 0x08 OSCTRIM
+        int8_t trim_value; //Shifted right by 1 (so 1 == 2 clock cycles)
+      } reg;
+      mutable uint8_t raw[sizeof(reg)];
+    } mcp7940_;
 
     public:
         boolean begin(TwoWire *wireInstance = &Wire);
@@ -242,6 +284,7 @@ class RTC {
         String model();
         boolean isPCF8525();
         boolean isM41T81();
+        boolean isMPC7940();
 
         void dumpRegs(TwoWire *wireInstance = &Wire);
 };

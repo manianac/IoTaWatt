@@ -169,8 +169,8 @@ int16_t    *masterPhaseArray = nullptr;   // Single array containing all individ
 ScriptSet  *outputs = new ScriptSet();    // -> ScriptSet for output channels
 ScriptSet  *integrations = new ScriptSet(); // -> Scriptset for integrations
 
-uint8_t     deviceMajorVersion = 4;       // Default to 4.8
-uint8_t     deviceMinorVersion = 8;                 
+uint8_t     deviceMajorVersion = 6;       // Register as a 6.0 board for custom build
+uint8_t     deviceMinorVersion = 0;                 
 float       VrefVolts = 2.5;              // Voltage reference shunt value used to calibrate
 
       // ****************************************************************************
@@ -210,7 +210,7 @@ uint8_t*          adminH1 = nullptr;      // H1 digest md5("admin":"admin":passw
 uint8_t*          userH1 = nullptr;       // H1 digest md5("user":"user":password)
 authSession*      authSessions = nullptr; // authSessions list head;
 uint16_t          authTimeout = 600;      // Timeout interval of authSession in seconds;
-bool              localAccess = false;    // True if password not required for local access  
+bool              localAccess = true;    // True if password not required for local access  
  
 
       // ************************** HTTP concurrent request semaphore *************************
@@ -257,10 +257,10 @@ char *updateClass = nullptr;                                   // NONE, MAJOR, M
 long tableVersion = -1;
 
 const uint8_t publicKey[32] PROGMEM = {
-                        0x7b, 0x36, 0x2a, 0xc7, 0x74, 0x72, 0xdc, 0x54,
-                        0xcc, 0x2c, 0xea, 0x2e, 0x88, 0x9c, 0xe0, 0xea,
-                        0x3f, 0x20, 0x5a, 0x78, 0x22, 0x0c, 0xbc, 0x78,
-                        0x2b, 0xe6, 0x28, 0x5a, 0x21, 0x9c, 0xb7, 0xf3}; 
+                        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}; 
 const char hexcodes_P[] PROGMEM = "0123456789abcdef";
 const char base64codes_P[] PROGMEM = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";  
 

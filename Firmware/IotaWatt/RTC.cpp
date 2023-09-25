@@ -734,6 +734,12 @@ boolean RTC::begin(TwoWire *wireInstance){
         }
         return true;
     }
+    RTCWireBus->beginTransmission(MCP7940_ADDR);
+    if (RTCWireBus->endTransmission() == 0){
+      _model = MCP7940;
+      _RTCaddr = MCP7940_ADDR;
+      return true;
+    }
     _model = unknown;
     return false;
 }
@@ -751,11 +757,15 @@ boolean RTC::isRunning(){
         readBytes((byte) 0x01);
         return  ! ((RTCWireBus->read() & 0x80) >> 7);
     }
+    if (_model == MCP7940){
+      readBytes((byte) 0x03);
+      return (RTCWireBus->read() >> 5);
+    }
     return false;
 }
 
 boolean RTC::lostPower(void){
-    if(_model == unknown){
+    if(_model == unknown || _model == MCP7940){
         return false;
     }
     if(_model == PCF8523){
@@ -770,6 +780,7 @@ boolean RTC::lostPower(void){
 }
 
 void RTC::resetLostPower(){
+  if (_model == MCP7940) return; //Not necessary
     RTCWireBus->beginTransmission(_RTCaddr);
     if(_model == PCF8523){
         RTCWireBus->write((byte)PCF8523_CONTROL_3);
@@ -785,6 +796,7 @@ void RTC::adjust(const DateTime &dt){
     if(_model == unknown){
         return;
     }
+    stop();
     RTCWireBus->beginTransmission(_RTCaddr);
     if(_model == PCF8523){
         RTCWireBus->write((byte)PCF8523_CONTROL_3);
@@ -817,6 +829,22 @@ void RTC::adjust(const DateTime &dt){
         RTCWireBus->write((byte)0x00);              // 0Fh - AFE=0, SQWE=0, ABE=1, ALM=0
         RTCWireBus->endTransmission();
     }
+    else if(_model == MCP7940){
+      mcp7940_.reg.year = bin2bcd(dt.year() - 2000U);
+      mcp7940_.reg.month = bin2bcd(dt.month());
+      mcp7940_.reg.day = bin2bcd(dt.day());
+      mcp7940_.reg.weekday = bin2bcd(dt.dayOfTheWeek());
+      mcp7940_.reg.hour = bin2bcd(dt.hour());
+      mcp7940_.reg.minute = bin2bcd(dt.minute());
+      mcp7940_.reg.second = bin2bcd(dt.second());
+      mcp7940_.reg.start_osc = true;
+      mcp7940_.reg.hour_12_24 = false;
+      mcp7940_.reg.squarewave_output_en = false;
+
+      RTCWireBus->write(0x00);
+      RTCWireBus->write(mcp7940_.raw, sizeof(mcp7940_.raw));
+      RTCWireBus->endTransmission();
+    }
     else {
         return;
     }
@@ -847,6 +875,16 @@ DateTime RTC::now(){
         uint16_t y = bcd2bin(RTCWireBus->read()) + 2000U;
         return DateTime(y, m, d, hh, mm, ss);
     }
+    else if (_model == MCP7940){
+      readBytes(0x00, sizeof(mcp7940_.raw));
+      RTCWireBus->readBytes(mcp7940_.raw, sizeof(mcp7940_.raw));
+      return DateTime(bcd2bin(mcp7940_.reg.year) + 2000U,
+                      bcd2bin(mcp7940_.reg.month),
+                      bcd2bin(mcp7940_.reg.day),
+                      bcd2bin(mcp7940_.reg.hour),
+                      bcd2bin(mcp7940_.reg.minute),
+                      bcd2bin(mcp7940_.reg.second));
+    }
     else {
         return DateTime(0, 1, 1, 0, 0, 0);
     }
@@ -859,7 +897,7 @@ boolean RTC::lowBattery(){
     }
     if(_model == M41T81){
         readBytes((byte) 0x0f);
-        return  (RTCWireBus->read() & 0x01) >>4;
+        return  (RTCWireBus->read() & 0x01) >> 4;
     }
     return false;
 }
@@ -874,6 +912,10 @@ void RTC::stop(){
         RTCWireBus->write((byte)0x01); // HT byte
         RTCWireBus->write((byte)0x80);
     }
+    else if (_model == MCP7940){
+      RTCWireBus->write((byte)0x00);
+      RTCWireBus->write((byte)0x00); // Clear Bit 7 (ST)
+    }
     RTCWireBus->endTransmission();
 }
 
@@ -885,6 +927,9 @@ String RTC::model(){
   if(_model == M41T81){
       sprintf(response, "M41T81 (%.2x)", _RTCaddr);
   }
+  if (_model == MCP7940){
+    sprintf(response, "MCP7940 (%.2x)", _RTCaddr);
+  }
   return String(response);
 }
 
@@ -894,4 +939,8 @@ boolean RTC::isPCF8525(){
 
 boolean RTC::isM41T81(){
     return _model == M41T81;
+}
+
+boolean RTC::isMPC7940(){
+    return _model == MCP7940;
 }

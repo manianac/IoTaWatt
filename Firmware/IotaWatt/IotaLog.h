@@ -30,8 +30,8 @@ struct IotaLogRecord {
           double Export;
         };
         struct {                // Full datalog record (total size 256 bytes)
-          double accum1[15];
-          double accum2[15];
+          double accum1[31];
+          double accum2[31];
         };
       };
       IotaLogRecord()

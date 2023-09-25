@@ -422,7 +422,7 @@ bool configDevice(const char* JsonStr){
   ADC_selectPin[0] = pin_CS_ADC0;
   ADC_selectPin[1] = pin_CS_ADC1;
 
-  int channels = 15; 
+  int channels = 31; 
   DynamicJsonBuffer Json;
   JsonObject& device = Json.parseObject(JsonStr);
   if( ! device.success()){
