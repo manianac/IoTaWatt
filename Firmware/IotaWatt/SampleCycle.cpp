@@ -90,8 +90,6 @@ int sampleCycle(IotaInputChannel *Vchannel, IotaInputChannel *Ichannel, int cycl
   bool Vsensed = false;                       // Voltage greater than 5 counts sensed.
   bool Vreverse = inputChannel[Vchan]->_reverse;
   bool Ireverse = inputChannel[Ichan]->_reverse;
-
-  uint8_t adc_channelRead = 0xFF;
   
   SPI.beginTransaction(SPISettings(10000000, MSBFIRST, SPI_MODE0));
  
@@ -150,9 +148,9 @@ int sampleCycle(IotaInputChannel *Vchannel, IotaInputChannel *Ichannel, int cycl
         if (ADC_IselectPin == 16) GP16O |= 1;
         else                      GPOS = ADC_IselectMask;                                             // digitalWrite(ADC_IselectPin, HIGH); Deselect the ADC 
 
-        adc_channelRead = (word(*fifoPtr8, *(fifoPtr8+1)) >> 12);
 
-        if (adc_channelRead != Iport)
+
+        if ((*fifoPtr8 >> 4) != Iport)
           rawI = readADC(Ichan) - offsetI;
         else
           // extract the rawI from the SPI hardware buffer and adjust with offset. 
@@ -202,10 +200,8 @@ int sampleCycle(IotaInputChannel *Vchannel, IotaInputChannel *Ichannel, int cycl
         while(SPI1CMD & SPIBUSY) {}
         if (ADC_VselectPin == 16)   GP16O |= 1;
         else                        GPOS = ADC_VselectMask;                           // digitalWrite(ADC_VselectPin, HIGH);  Deselect the ADC                       
-
-        adc_channelRead = (word(*fifoPtr8, *(fifoPtr8+1)) >> 12);
         
-        if (adc_channelRead != Vport)
+        if ((*fifoPtr8 >> 4) != Vport)
           // Retry until correct channel is returned
           rawV = readADC(Vchan) - offsetV;
         else // extract the rawI from the SPI hardware buffer and adjust with offset.
