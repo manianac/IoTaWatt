@@ -945,7 +945,7 @@ void handleUpdate(){
     return;
   }
   String release = server.arg(F("release"));
-  if(unpackUpdate(release)){
+  // if(unpackUpdate(release)){
     if(installUpdate(release)){
       log ("Updater: Firmware updated, restarting.");
       server.send(200, txtPlain_P, F("Firmware updated, restarting."));
@@ -955,11 +955,11 @@ void handleUpdate(){
     else {
       server.send(400, txtPlain_P, F("Firmware update failed."));
     }
-  }
-  else {
-    server.send(400, txtPlain_P, F("Release file not validated."));
-    return;
-  }
+  // }
+  // else {
+  //  server.send(400, txtPlain_P, F("Release file not validated."));
+  // return;
+  // }
 }
   
     

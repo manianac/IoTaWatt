@@ -534,7 +534,9 @@ float samplePhase(uint8_t Ichan, uint8_t Cchan, int shift, double *VPri, double 
                       //*******************************
         uint16_t payload = adc_config | ( Cport << 7);
         
-        GPOC = ADC_CselectMask;                            // digitalWrite(ADC_CselectPin, LOW); Select the ADC
+        if (ADC_CselectPin == 16)   GP16O &= ~1;
+        else                        GPOC = ADC_CselectMask;                            // digitalWrite(ADC_CselectPin, LOW); Select the ADC
+
         SPI1U1 = (SPI1U1 & mask) | dataMask;               // Set number of bits 
         SPI1W0 = ((payload >> 8) & 0xFF) | ((payload & 0xFF) << 8);               // Manual request to ADC
         SPI1CMD |= SPIBUSY;                                // Start the SPI clock 
@@ -548,29 +550,44 @@ float samplePhase(uint8_t Ichan, uint8_t Cchan, int shift, double *VPri, double 
           crossGuard--;    
           
         while(SPI1CMD & SPIBUSY) {}                                         // Loop till SPI completes
-        GPOS = ADC_CselectMask;                                             // digitalWrite(ADC_CselectPin, HIGH); Deselect the ADC 
-        rawC = (word(*fifoPtr8, *(fifoPtr8+1)) & 0xFFF) - offsetC;
+        if (ADC_CselectPin == 16) GP16O |= 1;
+        else                      GPOS = ADC_CselectMask;                                             // digitalWrite(ADC_CselectPin, HIGH); Deselect the ADC 
+
+        if ((*fifoPtr8 >> 4) != Cport)
+          rawI = readADC(Cchan) - offsetC;
+        else
+          rawC = (word(*fifoPtr8, *(fifoPtr8+1)) & 0xFFF) - offsetC;
+        
         if(Creverse) rawC = -rawC;
 
                       //************************************
                       //*  Sample the Current (I) channel  *
                       //************************************
-        //readADC(Ichan);
-        GPOC = ADC_IselectMask;                             // digitalWrite(ADC_IselectPin, LOW); Select the ADC
+        payload = adc_config | ( Iport << 7);
+        if (ADC_IselectPin == 16)   GP16O &= ~1;
+        else                        GPOC = ADC_IselectMask;                            // digitalWrite(ADC_IselectPin, LOW); Select the ADC
+
         SPI1U1 = (SPI1U1 & mask) | dataMask;
-        SPI1W0 = adc_config | ( Iport << 7);               // Manual request to ADC
+        SPI1W0 = ((payload >> 8) & 0xFF) | ((payload & 0xFF) << 8);               // Manual request to ADC
         SPI1CMD |= SPIBUSY;
-               
-          if((uint32_t)(millis()-startMs)>timeoutMs){                   // Something is wrong
-            GPOS = ADC_IselectMask;                                     // ADC select pin high 
+
+          if((uint32_t)(millis()-startMs) > timeoutMs){                   // Something is wrong
+            if (ADC_IselectPin == 16) GP16O |= 1;
+            else                      GPOS = ADC_IselectMask;                                             // digitalWrite(ADC_IselectPin, HIGH); Deselect the ADC
             delete[] isamples;                               
             Serial.printf("crosscount %d, samples %d\r\n", crossCount, samples);                                              
             return -998.0;  
           }
         
         while(SPI1CMD & SPIBUSY) {}                                 
-        GPOS = ADC_IselectMask;                           // digitalWrite(ADC_IselectPin, HIGH);  Deselect the ADC                       
-        rawI = (word(*fifoPtr8, *(fifoPtr8+1)) & 0xFFF) - offsetI;
+        if (ADC_IselectPin == 16) GP16O |= 1;
+        else                      GPOS = ADC_IselectMask;                                             // digitalWrite(ADC_IselectPin, HIGH); Deselect the ADC                  
+
+        if ((*fifoPtr8 >> 4) != Iport)
+          rawI = readADC(Ichan) - offsetI;
+        else
+          // extract the rawI from the SPI hardware buffer and adjust with offset. 
+          rawI = (word(*fifoPtr8, *(fifoPtr8+1)) & 0xFFF) - offsetI;
         
         if(Ireverse) rawI = -rawI;
 
@@ -612,7 +629,9 @@ float samplePhase(uint8_t Ichan, uint8_t Cchan, int shift, double *VPri, double 
                       //*******************************
         uint16_t payload = (adc_config | ( Cport << 7));
 
-        GPOC = ADC_CselectMask;                            // digitalWrite(ADC_CselectPin, LOW); Select the ADC
+        if (ADC_CselectPin == 16)   GP16O &= ~1;
+        else                        GPOC = ADC_CselectMask;                             // digitalWrite(ADC_CselectPin, LOW); Select the ADC
+
         SPI1U1 = (SPI1U1 & mask) | dataMask;               // Set number of bits 
         SPI1W0 = ((payload >> 8) & 0xFF) | ((payload & 0xFF) << 8);               // Manual request to ADC
         SPI1CMD |= SPIBUSY;                                // Start the SPI clock 
@@ -642,8 +661,13 @@ float samplePhase(uint8_t Ichan, uint8_t Cchan, int shift, double *VPri, double 
               // Now wait for SPI to complete
         
         while(SPI1CMD & SPIBUSY) {Cwait++;}                                         // Loop till SPI completes
-        GPOS = ADC_CselectMask;                                             // digitalWrite(ADC_CselectPin, HIGH); Deselect the ADC 
-        rawC = (word(*fifoPtr8, *(fifoPtr8+1))) - offsetC;
+        if (ADC_CselectPin == 16)   GP16O |= 1;
+        else                        GPOS = ADC_CselectMask;                           // digitalWrite(ADC_VselectPin, HIGH);  Deselect the ADC             
+        if ((*fifoPtr8 >> 4) != Cport)
+          // Retry until correct channel is returned
+          rawC = readADC(Cchan) - offsetC;
+        else // extract the rawI from the SPI hardware buffer and adjust with offset.
+          rawC = (word(*fifoPtr8, *(fifoPtr8+1)) & 0xFFF) - offsetC;
         if(Creverse) rawC = -rawC;
 
                       //************************************
@@ -651,7 +675,8 @@ float samplePhase(uint8_t Ichan, uint8_t Cchan, int shift, double *VPri, double 
                       //************************************
         payload = (adc_config | ( Iport << 7));
 
-        GPOC = ADC_IselectMask;                             // digitalWrite(ADC_IselectPin, LOW); Select the ADC
+        if (ADC_IselectPin == 16)   GP16O &= ~1;
+        else                        GPOC = ADC_IselectMask;                             // digitalWrite(ADC_CselectPin, LOW); Select the ADC
         SPI1U1 = (SPI1U1 & mask) | dataMask;
         SPI1W0 = ((payload >> 8) & 0xFF) | ((payload & 0xFF) << 8);               // Manual request to ADC
         SPI1CMD |= SPIBUSY;
@@ -664,8 +689,9 @@ float samplePhase(uint8_t Ichan, uint8_t Cchan, int shift, double *VPri, double 
               // will happen if the adapter is unplugged.
               // So handling needs to be robust.
         
-          if((uint32_t)(millis()-startMs)>timeoutMs){                   // Something is wrong
-            GPOS = ADC_IselectMask;                                     // ADC select pin high 
+          if((uint32_t)(millis()-startMs) > timeoutMs){                   // Something is wrong
+            if (ADC_IselectPin == 16) GP16O |= 1;
+            else                      GPOS = ADC_IselectMask;                                             // digitalWrite(ADC_IselectPin, HIGH); Deselect the ADC 
             delete[] isamples;                               
             return -999.0;                                                // Return a failure
           }
@@ -673,8 +699,14 @@ float samplePhase(uint8_t Ichan, uint8_t Cchan, int shift, double *VPri, double 
               // Now wait for SPI to complete
         
         while(SPI1CMD & SPIBUSY) {Iwait++;}                                 
-        GPOS = ADC_IselectMask;                           // digitalWrite(ADC_IselectPin, HIGH);  Deselect the ADC                       
-        rawI = (word(*fifoPtr8, *(fifoPtr8+1)) & 0xFFF) - offsetI;
+        if (ADC_IselectPin == 16) GP16O |= 1;
+        else                      GPOS = ADC_IselectMask;                                             // digitalWrite(ADC_IselectPin, HIGH); Deselect the ADC                     
+
+        if ((*fifoPtr8 >> 4) != Iport)
+          rawI = readADC(Ichan) - offsetI;
+        else
+          // extract the rawI from the SPI hardware buffer and adjust with offset. 
+          rawI = (word(*fifoPtr8, *(fifoPtr8+1)) & 0xFFF) - offsetI;
         if(Ireverse) rawI = -rawI;
 
         // Finish up loop cycle by checking for zero crossing.

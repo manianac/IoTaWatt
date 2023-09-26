@@ -108,8 +108,6 @@ int sampleCycle(IotaInputChannel *Vchannel, IotaInputChannel *Ichannel, int cycl
 
         if (ADC_IselectPin == 16)   GP16O &= ~1;
         else                        GPOC = ADC_IselectMask;                            // digitalWrite(ADC_IselectPin, LOW); Select the ADC
-
-              // hardware send 5 bit start + sgl/diff + port_addr
                                             
         SPI1U1 = (SPI1U1 & mask) | dataMask;               // Set number of bits 
         SPI1W0 = ((payload >> 8) & 0xFF) | ((payload & 0xFF) << 8);               // Manual request to ADC

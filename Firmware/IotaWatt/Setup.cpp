@@ -226,7 +226,7 @@ if(spiffsBegin()){
   NewService(WiFiService, T_WiFi); 
   NewService(timeSync, T_timeSync);
   NewService(statService, T_stats);
-  NewService(updater, T_UPDATE);
+  //NewService(updater, T_UPDATE);
   NewService(dataLog, T_datalog);
   NewService(historyLog, T_history);
 
