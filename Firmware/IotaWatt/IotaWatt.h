@@ -45,6 +45,8 @@
 #include <math.h>
 #include <Ticker.h>
 
+#include <U8g2lib.h>
+
 #include "IotaLog.h"
 #include "IotaInputChannel.h"
 #include "IotaScript.h"
@@ -194,7 +196,8 @@ struct EEprom {
 #define T_influx1 32       // influxDB_v1_uploader
 #define T_integrator 33    // Integrator class  
 #define T_Script 34
-#define T_Scriptset 35                        
+#define T_Scriptset 35
+#define T_display 36
 
       // LED codes
 
@@ -253,6 +256,8 @@ extern float    VrefVolts;                    // Voltage reference shunt value u
                                               // the ADCs. (can be specified in config.device.refvolts)
 extern int16_t* masterPhaseArray;             // Single array containing all individual phase shift arrays    
 #define Vadj_3 1                             // Voltage channel attenuation ratio
+
+extern U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2;
 
       // ****************************************************************************
       // statService maintains current averages of the channel values
@@ -325,6 +330,7 @@ extern uint32_t timeRefMs;                     // Internal MS clock correspondin
 extern uint32_t timeSynchInterval;             // Interval (sec) to roll NTP forward and try to refresh
 extern uint32_t statServiceInterval;           // Interval (sec) to invoke statService
 extern uint32_t updaterServiceInterval;        // Interval (sec) to check for software updates
+extern uint32_t displayServiceInterval;        // Interval (ms) to update the OLED display
 
 extern bool     hasRTC;
 extern bool     RTCrunning;
@@ -373,6 +379,7 @@ uint32_t  updater(struct serviceBlock*);
 uint32_t  WiFiService(struct serviceBlock*);
 uint32_t  exportLog(struct serviceBlock *_serviceBlock);
 uint32_t  getFeedData(); //(struct serviceBlock*);
+uint32_t  displayService(struct serviceBlock*);
 
 uint32_t  logReadKey(IotaLogRecord* callerRecord);
 

@@ -54,6 +54,7 @@ void setup()
   //*************************************** Check RTC   *****************************
   
   Wire.begin(pin_I2C_SDA, pin_I2C_SCL);
+  Wire.setClock(400000);
   rtc.begin();
   if (rtc.isRunning())
   {
@@ -70,6 +71,8 @@ void setup()
     log("Real Time Clock not running.");
   }
   programStartTime = UTCtime();
+
+  u8g2.begin();
   
     //**************************************** Display the trace ****************************************
   if(powerFailRestart){
@@ -229,6 +232,7 @@ if(spiffsBegin()){
   //NewService(updater, T_UPDATE);
   NewService(dataLog, T_datalog);
   NewService(historyLog, T_history);
+  NewService(displayService, T_display);
 
   if(! validConfig){
     setLedCycle(LED_BAD_CONFIG);
@@ -261,14 +265,14 @@ void endLedCycle(){
 }
 
 void ledBlink(){
-  digitalWrite(greenLed, LOW);
+  digitalWrite(greenLed, HIGH);
   if(ledColor[ledCount] == 0) ledCount = 0;
-  if(ledColor[ledCount] == 'G') digitalWrite(greenLed, HIGH);
+  if(ledColor[ledCount] == 'G') digitalWrite(greenLed, LOW);
   ledCount++;
 }
 
 void setLedState(){
   if(validConfig){
-    digitalWrite(greenLed, HIGH);
+    digitalWrite(greenLed, LOW);
   }
 } 

@@ -173,6 +173,8 @@ uint8_t     deviceMajorVersion = 6;       // Register as a 6.0 board for custom 
 uint8_t     deviceMinorVersion = 0;                 
 float       VrefVolts = 2.5;              // Voltage reference shunt value used to calibrate
 
+U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0);
+
       // ****************************************************************************
       // statService maintains current averages of the channel values
       // so that current values can be displayed by web clients
@@ -240,6 +242,7 @@ uint32_t timeRefMs = 0;                      // Internal MS clock corresponding 
 uint32_t timeSynchInterval = 3600;           // Interval (sec) to roll NTP forward and try to refresh
 uint32_t statServiceInterval = 1;            // Interval (sec) to invoke statService
 uint32_t updaterServiceInterval = 60*60;     // Interval (sec) to check for software updates 
+uint32_t displayServiceInterval = 500;       // Interval (ms) to update the OLED display
 
 bool     hasRTC = false;
 bool     RTCrunning = false;
