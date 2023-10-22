@@ -2,7 +2,15 @@
 
 uint32_t displayService(struct serviceBlock* _serviceBlock) {
     char szBuffer[64] = { 0 };
+    static bool started = false;
+
     trace(T_display, 0);
+
+    if (!started)
+    {
+        log("display: service started.");
+        started = true;
+    }
 
     u8g2.clearBuffer();
     u8g2.setFont(u8g2_font_unifont_tr);

@@ -151,32 +151,74 @@ void samplePower(int channel, int overSample){
 //**********************************************************************************************
 
 int readADC(uint8_t channel){
-  uint32_t dataMask = ((ADC_BITS + 3) << SPILMOSI) | ((ADC_BITS + 3) << SPILMISO);
+  uint16_t ADC_in = 0xFFFF;
+  
+  SPI.beginTransaction(SPISettings(10000000, MSBFIRST, SPI_MODE0));  // SD may have changed this
+  while (((ADC_in & 0xF000) >> 12) != (inputChannel[channel]->_addr & 0xF))
+  {
+    ADC_in = readADCsingle(channel);
+  }
+  return (ADC_in & 0xFFF); // Put the result together and return
+}
+
+//**********************************************************************************************
+//
+//        readADCsequence(uint8_t channel)
+//        Prepares read that in a known order
+//**********************************************************************************************
+
+int readADCsequence(uint8_t channel, uint8_t nextChannel){
+
+  uint16_t ADC_in = 0xFFFF; // Invalidate for first read
+  
+  SPI.beginTransaction(SPISettings(10000000, MSBFIRST, SPI_MODE0));  // SD may have changed this
+
+  while (((ADC_in & 0xF000) >> 12) != (inputChannel[channel]->_addr & 0xF))
+  {
+    ADC_in = readADCsingle(channel);
+    if (((ADC_in & 0xF000) >> 12) == (inputChannel[channel]->_addr & 0xF))
+    { // Now that we have the necessary first read, prepare the sequence
+      readADCsingle(nextChannel);
+      readADCsingle(channel);
+    }
+  }
+
+  return (ADC_in); // Put the result together and return
+}
+
+
+//**********************************************************************************************
+//
+//        readADCsingle(uint8_t channel)
+//
+//**********************************************************************************************
+
+uint16_t readADCsingle(uint8_t channel){
+  //Serial.printf_P(PSTR("readADC chan %d\r\n"), channel);
+  constexpr uint32_t dataMask = ((ADC_BITS + 3) << SPILMOSI) | ((ADC_BITS + 3) << SPILMISO);
   constexpr uint32_t mask = ~((SPIMMOSI << SPILMOSI) | (SPIMMISO << SPILMISO));
   const uint16_t config = ( 0b0001 << 12 ) |         // Manual read of configured channel
                               ( 1 << 11 ) |              // Enable setting of configuration functions
                               ( (inputChannel[channel]->_addr & 0xF) << 7 ) |
                               ( 1 << 6 );                // 2xVref input range
-  uint16_t ADC_in = 0xFFFF; // Invalidate for first read
+
   volatile uint8_t * fifoPtr8 = (volatile uint8_t *) &SPI1W0;
-  
-  SPI.beginTransaction(SPISettings(10000000, MSBFIRST, SPI_MODE0));  // SD may have changed this
+
   uint8_t ADCselectPin = ADC_selectPin[inputChannel[channel]->_addr >> 4]; // Breaks down the channel to 0 or 1
   uint32_t ADC_selectMask = 1 << ADCselectPin;             // Mask for hardware chip select (pins 0-15)
 
-  while (((ADC_in & 0xF000) >> 12) != (inputChannel[channel]->_addr & 0xF))
-  {
-    if (ADCselectPin == 16) GP16O &= ~1;
-    else                    GPOC = ADC_selectMask;                                     //digitalWrite(ADCselectPin, LOW);                  // Lower the chip select
-    SPI1U1 = (SPI1U1 & mask) | dataMask;                          // Set number of bits
-    SPI1W0 = ((config >> 8) & 0xFF) | ((config & 0xFF) << 8);     // Manual request to ADC
-    SPI1CMD |= SPIBUSY;                                           // Start the SPI clock  
-    while(SPI1CMD & SPIBUSY) {}                                   // Loop till SPI completes
-    if (ADCselectPin == 16) GP16O |= 1;
-    else                    GPOS = ADC_selectMask;                                     //digitalWrite(ADCselectPin, HIGH);                 // Raise the chip select to deselect and reset
-    ADC_in = word(*fifoPtr8, *(fifoPtr8+1));
-  }
-  return (ADC_in & 0xFFF); // Put the result together and return
+  if (ADCselectPin == 16) GP16O &= ~1;
+  else                    GPOC = ADC_selectMask;                // Lower the chip select
+
+  SPI1U1 = (SPI1U1 & mask) | dataMask;                          // Set number of bits
+  SPI1W0 = ((config >> 8) & 0xFF) | ((config & 0xFF) << 8);     // Manual request to ADC
+  SPI1CMD |= SPIBUSY;                                           // Start the SPI clock  
+  while(SPI1CMD & SPIBUSY) {}                                   // Loop till SPI completes
+
+  if (ADCselectPin == 16) GP16O |= 1;
+  else                    GPOS = ADC_selectMask;                // Raise the chip select to deselect and reset
+
+  return word(*fifoPtr8, *(fifoPtr8+1)); // Put the result together and return
 }
 
 /****************************************************************************************************

@@ -242,7 +242,7 @@ uint32_t timeRefMs = 0;                      // Internal MS clock corresponding 
 uint32_t timeSynchInterval = 3600;           // Interval (sec) to roll NTP forward and try to refresh
 uint32_t statServiceInterval = 1;            // Interval (sec) to invoke statService
 uint32_t updaterServiceInterval = 60*60;     // Interval (sec) to check for software updates 
-uint32_t displayServiceInterval = 500;       // Interval (ms) to update the OLED display
+uint32_t displayServiceInterval = 800;       // Interval (ms) to update the OLED display
 
 bool     hasRTC = false;
 bool     RTCrunning = false;
