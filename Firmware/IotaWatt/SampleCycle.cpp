@@ -93,7 +93,17 @@ int sampleCycle(IotaInputChannel *Vchannel, IotaInputChannel *Ichannel, int cycl
   
   SPI.beginTransaction(SPISettings(10000000, MSBFIRST, SPI_MODE0));
  
-  rawV = readADC(Vchan) - offsetV;                    // Prime the pump
+  if (ADC_IselectPin == ADC_VselectPin)
+  {
+    rawV = readADCsequence(Vchan, Ichan) - offsetV;                    // Prime the pump
+    //Serial.printf_P(PSTR("AD Sequence: %d %d\r\n"), Vchan, Ichan);
+  }
+  else
+  {
+    rawV = readADC(Vchan) - offsetV;                    // Prime the pump
+    readADC(Ichan); //Prime other ADC
+    //Serial.printf_P(PSTR("AD No Seq: %d %d\r\n"), Vchan, Ichan);
+  }
   samples = 0;                                        // Start with nothing
 
           // Have at it.
@@ -149,7 +159,10 @@ int sampleCycle(IotaInputChannel *Vchannel, IotaInputChannel *Ichannel, int cycl
 
 
         if ((*fifoPtr8 >> 4) != Iport)
+        {
+          Serial.printf_P(PSTR("Bad AD I sequence.  Needed %d, got %d\r\n"), Iport, (*fifoPtr8 >> 4));
           rawI = readADC(Ichan) - offsetI;
+        }
         else
           // extract the rawI from the SPI hardware buffer and adjust with offset. 
           rawI = (word(*fifoPtr8, *(fifoPtr8+1)) & 0xFFF) - offsetI;
@@ -200,8 +213,11 @@ int sampleCycle(IotaInputChannel *Vchannel, IotaInputChannel *Ichannel, int cycl
         else                        GPOS = ADC_VselectMask;                           // digitalWrite(ADC_VselectPin, HIGH);  Deselect the ADC                       
         
         if ((*fifoPtr8 >> 4) != Vport)
+        {
           // Retry until correct channel is returned
+          Serial.printf_P(PSTR("Bad AD V sequence.  Needed %d, got %d\r\n"), Vport, (*fifoPtr8 >> 4));
           rawV = readADC(Vchan) - offsetV;
+        }
         else // extract the rawI from the SPI hardware buffer and adjust with offset.
           rawV = (word(*fifoPtr8, *(fifoPtr8+1)) & 0xFFF) - offsetV;
                
@@ -259,21 +275,25 @@ int sampleCycle(IotaInputChannel *Vchannel, IotaInputChannel *Ichannel, int cycl
     IsamplePtr++;
   }
 
-    // A sample (V & I pair) should take 26.04us.
+    // A sample (V & I pair) should take 26.04us on normal IotaWatt.
+    // We can achieve ~14us with ADS7953
     // If we get 10 or more less than that, or less than 320,
     // reject the cycle.
-  /*
-  if(samples < MAX(320, (lastCrossUs - firstCrossUs) * 100 / 2604 - 10)){
+  //Serial.printf_P(PSTR("Sample rate: %d in %dus\r\n"), samples, (lastCrossUs - firstCrossUs));
+  
+  //if(samples < MAX(320, (lastCrossUs - firstCrossUs) * 100 / 2604 - 10)){
+  if(samples < MAX(320, (lastCrossUs - firstCrossUs) * 100 / 1400 - 10)){
     Serial.printf_P(PSTR("Low sample count %d\r\n"), samples);
     return 1;
   }
-*/
+
     // The sample count for each half of the cycle should be equal.
     // The zero crossings can be a sample or two off. 
     // Reject the cycle if the difference is more than 8.
+    // Allow a higher sample imbalance given the increased count
 
-  if(abs(samples - (midCrossSamples * 2)) > 8){
-      // Serial.printf_P(PSTR("Sample imbalance %d %d\r\n"), midCrossSamples, samples - midCrossSamples);
+  if(abs(samples - (midCrossSamples * 2)) > 20){
+      Serial.printf_P(PSTR("Sample imbalance %d %d %d\r\n"), midCrossSamples, samples - midCrossSamples, abs(samples - (midCrossSamples * 2)));
       return 1;
   }
 
