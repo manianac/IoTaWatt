@@ -87,7 +87,7 @@ int sampleCycle(IotaInputChannel *Vchannel, IotaInputChannel *Ichannel, int cycl
   uint32_t ADC_IselectMask = 1 << ADC_IselectPin;             // Mask for hardware chip select (pins 0-15)
   uint32_t ADC_VselectMask = 1 << ADC_VselectPin;
 
-  bool Vsensed = false;                       // Voltage greater than 5 counts sensed.
+  bool Vsensed = false;                       // Voltage greater than 6 counts sensed.
   bool Vreverse = inputChannel[Vchan]->_reverse;
   bool Ireverse = inputChannel[Ichan]->_reverse;
   
@@ -134,7 +134,7 @@ int sampleCycle(IotaInputChannel *Vchannel, IotaInputChannel *Ichannel, int cycl
             samples++;                                    // Count samples
             if(samples >= MAX_SAMPLES){                   // If over the legal limit
               trace(T_SAMP,0);                            // shut down and return
-              GPOS = ADC_IselectMask;                     // (Chip select high) 
+              digitalWrite(ADC_IselectPin, HIGH);         // Deselect the ADC 
               Serial.println(F("Max samples exceeded."));
               return 2;
             }
@@ -144,7 +144,7 @@ int sampleCycle(IotaInputChannel *Vchannel, IotaInputChannel *Ichannel, int cycl
               // Will abort sample after initial crossGuard if not found.
 
           else {
-            if(rawV < -10 || rawV > 10){
+            if(rawV < -12 || rawV > 12){
               Vsensed = true;
             }
           }
@@ -200,7 +200,7 @@ int sampleCycle(IotaInputChannel *Vchannel, IotaInputChannel *Ichannel, int cycl
           else if(!crossGuard && !Vsensed){
             trace(T_SAMP,3,Ichan);                                      // Leave a meaningful trace
             trace(T_SAMP,3,Vchan);
-            GPOS = ADC_VselectMask;                                     // ADC select pin high
+            digitalWrite(ADC_VselectPin, HIGH);                         // Deselect the ADC 
             lastCrossUs = micros();                       
             return 2;                                                   // Return a failure
           }
@@ -293,7 +293,7 @@ int sampleCycle(IotaInputChannel *Vchannel, IotaInputChannel *Ichannel, int cycl
     // Allow a higher sample imbalance given the increased count
 
   if(abs(samples - (midCrossSamples * 2)) > 20){
-      Serial.printf_P(PSTR("Sample imbalance %d %d %d\r\n"), midCrossSamples, samples - midCrossSamples, abs(samples - (midCrossSamples * 2)));
+      Serial.printf_P(PSTR("Sample imbalance %d %d %d on V:%d I:%d\r\n"), midCrossSamples, samples - midCrossSamples, abs(samples - (midCrossSamples * 2)), Vchan, Ichan);
       return 1;
   }
 

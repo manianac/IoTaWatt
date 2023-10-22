@@ -173,7 +173,7 @@ struct EEprom {
 #define T_influx 7         // influxDB
 #define T_SAMP 8           // sampleCycle
 #define T_POWER 9          // Sample Power
-#define T_WEB 10           // (30)Web server handlersmax_inputs
+#define T_WEB 10           // (30)Web server handlers
 #define T_CONFIG 11        //  Get Config
 #define T_encryptEncode 12 //  base64encode and encryptData in EmonService
 #define T_uploadGraph 13 
@@ -255,7 +255,7 @@ extern uint8_t  deviceMinorVersion;           // Minor version of hardware
 extern float    VrefVolts;                    // Voltage reference shunt value used to calibrate
                                               // the ADCs. (can be specified in config.device.refvolts)
 extern int16_t* masterPhaseArray;             // Single array containing all individual phase shift arrays    
-#define Vadj_3 1                             // Voltage channel attenuation ratio
+#define Vadj_3 10                             // Voltage channel attenuation ratio
 
 extern U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2;
 
@@ -352,7 +352,7 @@ extern long           tableVersion;
 
 // ************************ ADC sample pairs ************************************
 
-#define MAX_SAMPLES 2000
+#define MAX_SAMPLES 1500
 
 extern uint32_t sumVsq;                           // sampleCycle will compute these while collecting samples    
 extern uint32_t sumIsq;

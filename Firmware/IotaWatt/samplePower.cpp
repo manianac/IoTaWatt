@@ -562,14 +562,26 @@ float samplePhase(uint8_t Ichan, uint8_t Cchan, int shift, double *VPri, double 
   int32_t Cwait = 0;
 
   SPI.beginTransaction(SPISettings(10000000,MSBFIRST,SPI_MODE0));
- 
-  rawI = (readADC(Ichan)) - offsetI;                    // Prime the pump
+
+  
+  if (ADC_IselectPin == ADC_CselectPin)
+  {
+    rawI = readADCsequence(Ichan, Cchan) - offsetI;                    // Prime the pump
+    //Serial.printf_P(PSTR("AD Sequence: %d %d\r\n"), Ichan, Cchan);
+  }
+  else
+  { 
+    rawI = (readADC(Ichan)) - offsetI;                    // Prime the pump
+    readADC(Cchan); //Prime other ADC
+    //Serial.printf_P(PSTR("AD No Seq: %d %d\r\n"), Ichan, Cchan);
+  }
   samples = 0;
 
           // Sample to get offsets
 
   ESP.wdtFeed();                                     // Red meat for the silicon dog
   WDT_FEED();
+
   do{  
                       //*******************************
                       //* Sample the CT (C) channel   *
@@ -596,7 +608,10 @@ float samplePhase(uint8_t Ichan, uint8_t Cchan, int shift, double *VPri, double 
         else                      GPOS = ADC_CselectMask;                                             // digitalWrite(ADC_CselectPin, HIGH); Deselect the ADC 
 
         if ((*fifoPtr8 >> 4) != Cport)
+        {
+          Serial.printf_P(PSTR("Bad AD C sequence.  Needed %d, got %d\r\n"), Cport, (*fifoPtr8 >> 4));
           rawI = readADC(Cchan) - offsetC;
+        }
         else
           rawC = (word(*fifoPtr8, *(fifoPtr8+1)) & 0xFFF) - offsetC;
         
@@ -605,7 +620,7 @@ float samplePhase(uint8_t Ichan, uint8_t Cchan, int shift, double *VPri, double 
                       //************************************
                       //*  Sample the Current (I) channel  *
                       //************************************
-        payload = adc_config | ( Iport << 7);
+        payload = adc_config | ( Iport << 7 );
         if (ADC_IselectPin == 16)   GP16O &= ~1;
         else                        GPOC = ADC_IselectMask;                            // digitalWrite(ADC_IselectPin, LOW); Select the ADC
 
@@ -614,8 +629,7 @@ float samplePhase(uint8_t Ichan, uint8_t Cchan, int shift, double *VPri, double 
         SPI1CMD |= SPIBUSY;
 
           if((uint32_t)(millis()-startMs) > timeoutMs){                   // Something is wrong
-            if (ADC_IselectPin == 16) GP16O |= 1;
-            else                      GPOS = ADC_IselectMask;                                             // digitalWrite(ADC_IselectPin, HIGH); Deselect the ADC
+            digitalWrite(ADC_IselectPin, HIGH);                           // Deselect the ADC
             delete[] isamples;                               
             Serial.printf("crosscount %d, samples %d\r\n", crossCount, samples);                                              
             return -998.0;  
@@ -626,7 +640,10 @@ float samplePhase(uint8_t Ichan, uint8_t Cchan, int shift, double *VPri, double 
         else                      GPOS = ADC_IselectMask;                                             // digitalWrite(ADC_IselectPin, HIGH); Deselect the ADC                  
 
         if ((*fifoPtr8 >> 4) != Iport)
+        {
+          Serial.printf_P(PSTR("Bad AD I sequence.  Needed %d, got %d\r\n"), Iport, (*fifoPtr8 >> 4));
           rawI = readADC(Ichan) - offsetI;
+        }
         else
           // extract the rawI from the SPI hardware buffer and adjust with offset. 
           rawI = (word(*fifoPtr8, *(fifoPtr8+1)) & 0xFFF) - offsetI;
@@ -659,7 +676,16 @@ float samplePhase(uint8_t Ichan, uint8_t Cchan, int shift, double *VPri, double 
 
   offsetI += sumI / samples;
   offsetC = offsetI;
-  rawI = (readADC(Ichan)) - offsetI;                 // Prime the pump
+  if (ADC_IselectPin == ADC_CselectPin)
+  {
+    rawI = readADCsequence(Ichan, Cchan) - offsetI;       // Prime the pump
+    //Serial.printf_P(PSTR("AD Sequence: %d %d\r\n"), Ichan, Cchan);
+  } else
+  { 
+    rawI = (readADC(Ichan)) - offsetI;                    // Prime the pump
+    readADC(Cchan);                                       //Prime other ADC
+    //Serial.printf_P(PSTR("AD No Seq: %d %d\r\n"), Ichan, Cchan);
+  }
   sumI = sumC = samples = 0;
   crossCount = 0;
   crossGuard = 10;
@@ -706,8 +732,10 @@ float samplePhase(uint8_t Ichan, uint8_t Cchan, int shift, double *VPri, double 
         if (ADC_CselectPin == 16)   GP16O |= 1;
         else                        GPOS = ADC_CselectMask;                           // digitalWrite(ADC_VselectPin, HIGH);  Deselect the ADC             
         if ((*fifoPtr8 >> 4) != Cport)
-          // Retry until correct channel is returned
+        {
+          Serial.printf_P(PSTR("Bad AD C sequence.  Needed %d, got %d\r\n"), Cport, (*fifoPtr8 >> 4));
           rawC = readADC(Cchan) - offsetC;
+        }
         else // extract the rawI from the SPI hardware buffer and adjust with offset.
           rawC = (word(*fifoPtr8, *(fifoPtr8+1)) & 0xFFF) - offsetC;
         if(Creverse) rawC = -rawC;
@@ -745,7 +773,10 @@ float samplePhase(uint8_t Ichan, uint8_t Cchan, int shift, double *VPri, double 
         else                      GPOS = ADC_IselectMask;                                             // digitalWrite(ADC_IselectPin, HIGH); Deselect the ADC                     
 
         if ((*fifoPtr8 >> 4) != Iport)
+        {
+          Serial.printf_P(PSTR("Bad AD I sequence.  Needed %d, got %d\r\n"), Iport, (*fifoPtr8 >> 4));
           rawI = readADC(Ichan) - offsetI;
+        }
         else
           // extract the rawI from the SPI hardware buffer and adjust with offset. 
           rawI = (word(*fifoPtr8, *(fifoPtr8+1)) & 0xFFF) - offsetI;
