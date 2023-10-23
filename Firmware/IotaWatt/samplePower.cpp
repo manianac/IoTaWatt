@@ -19,7 +19,7 @@ void samplePower(int channel, int overSample){
   if(inputChannel[channel]->_type == channelTypeVoltage){
     float VRMS = sampleVoltage(channel, inputChannel[channel]->_calibration);
     if(VRMS >= 0.0){
-      inputChannel[channel]->setVoltage(VRMS);                                                                        
+      inputChannel[channel]->setVoltage(VRMS);
     }
     return;
   }
@@ -54,7 +54,7 @@ void samplePower(int channel, int overSample){
       Ichannel->setPower(0.0, 0.0);
     }
     return;
-  }          
+  }
       
         // Voltage calibration is the ratio of line voltage to voltage presented at the input.
         // Input voltage is further attenuated with voltage dividing resistors (Vadj_3).
@@ -137,6 +137,8 @@ void samplePower(int channel, int overSample){
     }
   }
       // Update with the new power and voltage values.
+
+  //Serial.printf_P(PSTR("Sampling I:%d V:%d Vratio %0.2f Varef:%0.2f Iaref:%0.2f Vrms:%0.2f Irms:%0.2f watts:%0.2f\r\n"), Ichan, Vchan, Vratio, getAref(Vchan), getAref(Ichan), _Vrms, _Irms, _watts);
 
   trace(T_POWER,5);
   Ichannel->setPower(_watts, _VA);
@@ -253,6 +255,7 @@ float sampleVoltage(uint8_t Vchan, float Vcal){
 //**********************************************************************************************
 
 float getAref(int channel) {
+  /*
   uint32_t dataMask = ((ADC_BITS + 3) << SPILMOSI) | ((ADC_BITS + 3) << SPILMISO);
   constexpr uint32_t mask = ~((SPIMMOSI << SPILMOSI) | (SPIMMISO << SPILMISO));
   const uint16_t config = ( 0b0001 << 12 ) |         // Manual read of configured channel
@@ -280,7 +283,9 @@ float getAref(int channel) {
   }
   uint16_t ADCvalue = (ADC_in & 0xFFF);
   if(ADCvalue == 4095 | ADCvalue == 0) return 0;    // no ADC
-  return VrefVolts * ADC_RANGE / ADCvalue;  
+  return VrefVolts * ADC_RANGE / ADCvalue;
+  */
+ return 5.f; // No need to check Aref since we are using a precision rectifier
 }
 
 //**********************************************************************************************

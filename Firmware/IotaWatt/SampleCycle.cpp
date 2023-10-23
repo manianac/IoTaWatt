@@ -66,7 +66,7 @@ int sampleCycle(IotaInputChannel *Vchannel, IotaInputChannel *Ichannel, int cycl
   
   int16_t rawV = 0;                               // Raw ADC readings
   int16_t lastV = 0;
-  int16_t avgV;
+  int16_t avgV = 0;
   int16_t rawI = 0;
         
   int16_t * VsamplePtr = Vsample;             // -> to sample storage arrays
@@ -79,8 +79,8 @@ int sampleCycle(IotaInputChannel *Vchannel, IotaInputChannel *Ichannel, int cycl
   uint32_t startMs = millis();                // Start of current half cycle
   uint32_t timeoutMs = 12;                    // Maximum time allowed per half cycle
   
-  int16_t midCrossSamples;                    // Sample count at mid cycle and end of cycle
-  int16_t lastCrossSamples;                   // Used to determine if sampling was interrupted
+  int16_t midCrossSamples = 0;                    // Sample count at mid cycle and end of cycle
+  int16_t lastCrossSamples = 0;                   // Used to determine if sampling was interrupted
 
   byte ADC_IselectPin = ADC_selectPin[inputChannel[Ichan]->_addr >> 4];  // Chip select pin
   byte ADC_VselectPin = ADC_selectPin[inputChannel[Vchan]->_addr >> 4];
@@ -144,7 +144,7 @@ int sampleCycle(IotaInputChannel *Vchannel, IotaInputChannel *Ichannel, int cycl
               // Will abort sample after initial crossGuard if not found.
 
           else {
-            if(rawV < -12 || rawV > 12){
+            if(rawV < -10 || rawV > 10){
               Vsensed = true;
             }
           }
@@ -160,7 +160,7 @@ int sampleCycle(IotaInputChannel *Vchannel, IotaInputChannel *Ichannel, int cycl
 
         if ((*fifoPtr8 >> 4) != Iport)
         {
-          Serial.printf_P(PSTR("Bad AD I sequence.  Needed %d, got %d\r\n"), Iport, (*fifoPtr8 >> 4));
+          Serial.printf_P(PSTR("Bad AD I sequence.  Needed channel %d, got %d\r\n"), Iport, (*fifoPtr8 >> 4));
           rawI = readADC(Ichan) - offsetI;
         }
         else
@@ -204,7 +204,7 @@ int sampleCycle(IotaInputChannel *Vchannel, IotaInputChannel *Ichannel, int cycl
             lastCrossUs = micros();                       
             return 2;                                                   // Return a failure
           }
-          if(rawI >= -1 && rawI <= 1) rawI = 0;
+          if(rawI >= -1 && rawI <= 1) rawI = 0;                         // Increased dead zone due to assumed low 5v ref
                               
               // Now wait for SPI to complete
         
@@ -240,11 +240,11 @@ int sampleCycle(IotaInputChannel *Vchannel, IotaInputChannel *Ichannel, int cycl
             lastCrossSamples = samples;
             crossGuard = 0;                               // No more crosses for awhile
           }
-          else if(crossCount == ((crossLimit + 1) / 2)){
+          else if(crossCount == ((crossLimit + 1) / 2)) {
             midCrossSamples = samples;
             crossGuard = 10;                               // No more crosses for awhile                               
           }
-        }   
+        }
   } while(crossCount < crossLimit || crossGuard > 0); 
 
   trace(T_SAMP,8);
@@ -292,7 +292,7 @@ int sampleCycle(IotaInputChannel *Vchannel, IotaInputChannel *Ichannel, int cycl
     // Reject the cycle if the difference is more than 8.
     // Allow a higher sample imbalance given the increased count
 
-  if(abs(samples - (midCrossSamples * 2)) > 20){
+  if(abs(samples - (midCrossSamples * 2)) > 24){
       Serial.printf_P(PSTR("Sample imbalance %d %d %d on V:%d I:%d\r\n"), midCrossSamples, samples - midCrossSamples, abs(samples - (midCrossSamples * 2)), Vchan, Ichan);
       return 1;
   }
